@@ -62,10 +62,12 @@ async function status (req, res) {
     }
     const { data: user } = data
 
+    let totpStatus = { setup: true }
+
     if (user.totpSecret === '') {
       const secret = await otplib.authenticator.generateSecret()
 
-      res.json({
+      totpStatus = {
         setup: false,
         secret,
         email: user.email,
@@ -73,12 +75,12 @@ async function status (req, res) {
           secret,
           type: 'totp_setup_secret'
         })
-      })
-    } else {
-      res.json({
-        setup: true
-      })
+      }
     }
+
+    res.json({
+      totp: totpStatus
+    })
   } catch (error) {
     res.status(401).send()
   }

@@ -20,10 +20,12 @@ interface AuthenticationPayload {
 }
 
 interface TwoFactorAuthStatusPayload {
-  setup: boolean
-  secret?: string
-  setupToken?: string
-  email?: string
+  totp: {
+    setup: boolean
+    secret?: string
+    setupToken?: string
+    email?: string
+  }
 }
 
 @Injectable({
