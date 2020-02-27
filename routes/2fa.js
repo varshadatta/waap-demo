@@ -9,6 +9,7 @@ const otplib = require('otplib')
 const utils = require('../lib/utils')
 const challenges = require('../data/datacache').challenges
 const config = require('config')
+const { webauthn } = require('./webauthn')
 
 otplib.authenticator.options = {
   // Accepts tokens as valid even when they are 30sec to old or to new
@@ -78,8 +79,11 @@ async function status (req, res) {
       }
     }
 
+    const webauthnStatus = { setup: Boolean(webauthn.store.get(user.email)) }
+
     res.json({
-      totp: totpStatus
+      totp: totpStatus,
+      webauthn: webauthnStatus
     })
   } catch (error) {
     res.status(401).send()

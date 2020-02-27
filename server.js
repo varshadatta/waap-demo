@@ -91,6 +91,7 @@ const delivery = require('./routes/delivery')
 const deluxe = require('./routes/deluxe')
 const memory = require('./routes/memory')
 const locales = require('./data/static/locales')
+const webauthn = require('./routes/webauthn')
 const i18n = require('i18n')
 
 require('./lib/startup/restoreOverwrittenFilesWithOriginals')()
@@ -331,6 +332,9 @@ app.post('/rest/2fa/verify',
   new RateLimit({ windowMs: 5 * 60 * 1000, max: 100 }),
   twoFactorAuth.verify()
 )
+
+app.use('/webauthn', webauthn.routes)
+
 /* Check 2FA Status for the current User */
 app.get('/rest/2fa/status', insecurity.isAuthorized(), twoFactorAuth.status())
 /* Enable 2FA for the current User */
