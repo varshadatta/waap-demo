@@ -11,7 +11,7 @@ import { async, ComponentFixture, fakeAsync, TestBed } from '@angular/core/testi
 import { MatInputModule } from '@angular/material/input'
 import { ReactiveFormsModule } from '@angular/forms'
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations'
-import { BarRatingModule } from 'ng2-bar-rating'
+
 import { of, throwError } from 'rxjs'
 import { MatTableModule } from '@angular/material/table'
 import { MatExpansionModule } from '@angular/material/expansion'
@@ -21,12 +21,14 @@ import { PaymentService } from '../Services/payment.service'
 import { MatDialogModule } from '@angular/material/dialog'
 import { PaymentMethodComponent } from './payment-method.component'
 import { EventEmitter } from '@angular/core'
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar'
 
 describe('PaymentMethodComponent', () => {
   let component: PaymentMethodComponent
   let fixture: ComponentFixture<PaymentMethodComponent>
   let paymentService
   let translateService
+  let snackBar: any
 
   beforeEach(async(() => {
 
@@ -39,13 +41,14 @@ describe('PaymentMethodComponent', () => {
     translateService.onLangChange = new EventEmitter()
     translateService.onTranslationChange = new EventEmitter()
     translateService.onDefaultLangChange = new EventEmitter()
+    snackBar = jasmine.createSpyObj('MatSnackBar',['open'])
 
     TestBed.configureTestingModule({
       imports: [
         TranslateModule.forRoot(),
         HttpClientTestingModule,
         ReactiveFormsModule,
-        BarRatingModule,
+
         BrowserAnimationsModule,
         MatCardModule,
         MatTableModule,
@@ -59,7 +62,8 @@ describe('PaymentMethodComponent', () => {
       declarations: [ PaymentMethodComponent ],
       providers: [
         { provide: PaymentService, useValue: paymentService },
-        { provide: TranslateService, useValue: translateService }
+        { provide: TranslateService, useValue: translateService },
+        { provide: MatSnackBar, useValue: snackBar }
       ]
     })
     .compileComponents()
@@ -169,8 +173,7 @@ describe('PaymentMethodComponent', () => {
     paymentService.save.and.returnValue(throwError({ error: 'Error' }))
     spyOn(component,'resetForm')
     component.save()
-    expect(component.confirmation).toBeNull()
-    expect(component.error).toBe('Error')
+    expect(snackBar.open).toHaveBeenCalled()
     expect(component.resetForm).toHaveBeenCalled()
   }))
 })

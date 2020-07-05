@@ -46,11 +46,15 @@ mat-table {
   font-size: small;
 }
 
-.overlay-fullscreen /deep/ .black-overlay {
+.overlay-fullscreen ::ng-deep .black-overlay {
   position: fixed;
 }
 
 .hacking-instructor-button {
+  margin-left: 8px;
+}
+
+.vulnerability-mitigation-button {
   margin-left: 8px;
 }
 

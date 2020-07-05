@@ -198,6 +198,15 @@
     id: 7
     answer: 'sdAffsdfrefrbgreq3423'
 -
+  email: uvogin
+  password: 'muda-muda > ora-ora' # https://www.youtube.com/watch?v=vnJv8IoLMwc
+  key: uvogin
+  role: 'customer'
+  walletBalance: 100
+  securityQuestion:
+    id: 12
+    answer: 'Silence of the Lambs' # https://www.imdb.com/title/tt0102926/
+-
   email: demo
   password: 'demo'
   customDomain: true
@@ -220,3 +229,15 @@
       cardNum: 1234567812345678
       expMonth: 12
       expYear: 2099
+-
+  email: john
+  username: j0hNny
+  password: 'y&x5Z#f6W532Z4445#Ae2HkwZVyDb7&oCUaDzFU'
+  key: john
+  role: 'customer'
+- 
+  email: emma
+  username: E=ma²
+  password: 'y&x5Z#f6W532ZUf$q3DsdgfgfgxxUsvoCUaDzFU'
+  key: emma
+  role: 'customer'
