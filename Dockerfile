@@ -1,6 +1,6 @@
 FROM node:12 as installer
-COPY . /juice-shop
-WORKDIR /juice-shop
+COPY . /waap-demo
+WORKDIR /waap-demo
 RUN npm install --production --unsafe-perm
 RUN npm dedupe
 RUN rm -rf frontend/node_modules
@@ -20,10 +20,10 @@ LABEL maintainer="Bjoern Kimminich <bjoern.kimminich@owasp.org>" \
     org.opencontainers.image.source="https://github.com/bkimminich/juice-shop" \
     org.opencontainers.image.revision=$VCS_REF \
     org.opencontainers.image.created=$BUILD_DATE
-WORKDIR /juice-shop
+WORKDIR /waap-demo
 RUN addgroup --system --gid 1001 juicer && \
     adduser juicer --system --uid 1001 --ingroup juicer
-COPY --from=installer --chown=juicer /juice-shop .
+COPY --from=installer --chown=juicer /waap-demo .
 RUN mkdir logs && \
     chown -R juicer logs && \
     chgrp -R 0 ftp/ frontend/dist/ logs/ data/ i18n/ && \

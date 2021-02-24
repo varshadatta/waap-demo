@@ -9,7 +9,9 @@
 
 export const environment = {
   production: false,
-  hostServer: 'http://localhost:3000'
+  //hostServer: 'http://localhost:3000'
+  hostServer: 'https://api.gcpsecurity.solutions/owasp',
+  socketServer: '.'
 }
 
 /*
