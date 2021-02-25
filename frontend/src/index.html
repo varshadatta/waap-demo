@@ -13,6 +13,7 @@
   <link id="favicon" rel="icon" type="image/x-icon" href="assets/public/favicon_js.ico">
   <link rel="stylesheet" type="text/css" href="//cdnjs.cloudflare.com/ajax/libs/cookieconsent2/3.1.0/cookieconsent.min.css" />
   <script src="https://www.google.com/recaptcha/enterprise.js?render=6LeT31gaAAAAAEshjaIaP7cNG7YHTdzF5uEyCAKH"></script>
+  <script src='https://www.google.com/recaptcha/eap/enterprise.js?render=6LeT31gaAAAAAEshjaIaP7cNG7YHTdzF5uEyCAKH&waf=session' async defer></script>
   <script src="//cdnjs.cloudflare.com/ajax/libs/cookieconsent2/3.1.0/cookieconsent.min.js"></script>
   <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
   <script>
@@ -31,11 +32,4 @@
 <body class="mat-app-background bluegrey-lightgreen-theme">
   <app-root></app-root>
 </body>
-  <script>
-  grecaptcha.enterprise.ready(function() {
-      grecaptcha.enterprise.execute('6LeT31gaAAAAAEshjaIaP7cNG7YHTdzF5uEyCAKH', {action: 'homepage'}).then(function(token) {
-         console.log(token);
-      });
-  });
-  </script>
 </html>
