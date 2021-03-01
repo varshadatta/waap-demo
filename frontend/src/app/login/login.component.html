@@ -2,7 +2,7 @@
   ~ Copyright (c) 2014-2021 Bjoern Kimminich.
   ~ SPDX-License-Identifier: MIT
   -->
-
+<script src='https://www.google.com/recaptcha/eap/enterprise.js?render=6LfRQGYaAAAAAG5vXJtCCrAcj2xEP55vRnRBtKtz'</script>
 <div fxLayoutAlign="center">
   <mat-card class="mat-elevation-z6">
 
@@ -75,4 +75,20 @@
       </div>
     </div>
   </mat-card>
-</div>
+</div> 
+<script> 
+function onSuccess(action_token) { 
+const xhr = new XMLHttpRequest(); 
+xhr.open('GET','YOUR_URL', false); 
+// Attach action-token into the request header 
+xhr.setRequestHeader("X-Recaptcha-Token", action_token); 
+xhr.send(null); 
+} 
+function onError(reason) { 
+alert('Response promise rejected: ' + reason); 
+} 
+grecaptcha.enterprise.ready(function () { 
+document.getElementById("loginButton").onclick = () => { grecaptcha.enterprise.execute('6LfRQGYaAAAAAG5vXJtCCrAcj2xEP55vRnRBtKtz', { }).then(onSuccess, onError); 
+}; 
+}); 
+</script>
