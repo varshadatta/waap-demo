@@ -9,8 +9,9 @@
 
 export const environment = {
   production: false,
-  //hostServer: 'http://localhost:3000'
+  //hostServer: 'http://localhost:3000',
   hostServer: 'https://api.gcpsecurity.solutions/owasp',
+  apikey: '11euecfLCrTwQBhCevHDiKSE50UXTZBXwGYtEvA6fu0AQwyq',
   socketServer: '.'
 }
 

@@ -13,12 +13,13 @@ import { catchError, map } from 'rxjs/operators'
 })
 export class ProductService {
   private readonly hostServer = environment.hostServer
+  private readonly apikey = environment.apikey
   private readonly host = this.hostServer + '/api/Products'
 
   constructor (private readonly http: HttpClient) { }
 
   search (criteria: string) {
-    return this.http.get(`${this.hostServer}/rest/products/search?q=${criteria}`).pipe(map((response: any) => response.data), catchError((err) => { throw err }))
+    return this.http.get(`${this.hostServer}/rest/products/search?apikey=${apikey}&q=${criteria}`).pipe(map((response: any) => response.data), catchError((err) => { throw err }))
   }
 
   find (params: any) {
