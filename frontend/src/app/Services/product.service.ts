@@ -19,7 +19,7 @@ export class ProductService {
   constructor (private readonly http: HttpClient) { }
 
   search (criteria: string) {
-    return this.http.get(`${this.hostServer}/rest/products/search?apikey=${apikey}&q=${criteria}`).pipe(map((response: any) => response.data), catchError((err) => { throw err }))
+    return this.http.get(`${this.hostServer}/rest/products/search?apikey=${this.apikey}&q=${criteria}`).pipe(map((response: any) => response.data), catchError((err) => { throw err }))
   }
 
   find (params: any) {
