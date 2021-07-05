@@ -13,7 +13,7 @@ jobs:
       with:
         node-version: 14
     - name: "Install CLI tools"
-      run: npm install -g @angular/cli
+      run: npm install -g @angular/cli typescript ts-node
     - name: "Install application"
       run: |
         npm install --ignore-scripts
