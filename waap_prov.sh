@@ -152,22 +152,23 @@ echo "Step 1: Enable APIs"
 gcloud services enable apigee.googleapis.com cloudbuild.googleapis.com compute.googleapis.com cloudresourcemanager.googleapis.com servicenetworking.googleapis.com cloudkms.googleapis.com --project="$PROJECT_ID" --quiet
 
 echo "Step 2: Upload Apigee Proxy, create API Product and get App Key"
-#TODO
-export APP_KEY=4K79ZECuIAJigebR1bBBTkNNRTcXLjzRq8G4cDVB46RhXXJN
+#TODO 
+#IVAN this just needs to read the APIKEY env variable, not set it
+export APP_KEY=4K79ZECuIAJigebR1bBBTkNNRTcXLjzRq8G4cDVB46RhXXJN 
 
 
 echo "Step 3: Create gcr image"
 echo "Step 3.1: Clone juice shop repo"
 #git clone https://github.com/varshadatta/waap-demo
 #TODO - either sed replace the envs variable or use a version where we parameterise the inputs
+cd waap-demo
+docker build --build-arg API_ENDPOINT=$API_ENDPOINT --build-arg APIKEY=$APIKEY . -t varshadatta/waap-demo
 export IMAGETAG=gcr.io/$PROJECT_ID/owasp-juice-shop
 echo "Step 3.3: Submit image build"
 
-cd waap-demo
 gcloud builds submit --project=$PROJECT_ID \
     --tag $IMAGETAG \
     --timeout="1h"
-
 
 echo "Step 4: Create Juice shop MIG"
 #create image template
