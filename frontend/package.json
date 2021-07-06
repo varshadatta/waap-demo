@@ -3,9 +3,8 @@
   "version": "12.6.1",
   "scripts": {
     "ng": "ng",
- //   "config": "ts-node set-env.ts",
     "start": "ng serve",
-    "build": "ng build", // removed && ts-node set-env.ts
+    "build": "ng build",
     "test": "ng test",
     "lint": "ng lint",
     "lint:scss": "npx stylelint \"**/*.scss\"",
