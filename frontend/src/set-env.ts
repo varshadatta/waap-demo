@@ -7,7 +7,7 @@ require('dotenv').load();
 // `environment.ts` file structure
 const envConfigFile = `export const environment = {
     production: 'false',
-    hostServer: '${process.env.API_ENDPOINT}',
+    hostServer: '${process.env.API_ENDPOINT}${process.env.BASEPATH}',
     apikey: '${process.env.APIKEY}',
     socketServer: '.'
 };
