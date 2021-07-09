@@ -1,0 +1,16 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build',
+         '--build-arg',
+         'API_ENDPOINT=${_API_ENDPOINT}',
+         '--build-arg',
+         'BASEPATH=${_BASEPATH}',
+         '--build-arg',
+         'APIKEY=${_APIKEY}',
+         '-t',
+         '${_IMAGETAG}',
+         '.']
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', '${_IMAGETAG}']
+timeout: 3600s
+images: ['${_IMAGETAG}']
