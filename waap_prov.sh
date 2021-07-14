@@ -1,4 +1,3 @@
-
 #!/bin/bash
 # shellcheck disable=SC2059,SC2016,SC2181
 
@@ -33,6 +32,10 @@ case "$1" in
   -o|--org)
     APIGEE_ORG="$2"
     shift 2;;  
+
+  -e|--env)
+    APIGEE_ENV="$2"
+    shift 2;;    
     
     
   -z|--zone)
@@ -40,7 +43,7 @@ case "$1" in
     shift 2;;      
     
     
-  -e|--api_endpoint)
+  -a|--api_endpoint)
     API_ENDPOINT="$2"
     shift 2;; 
     
@@ -82,6 +85,12 @@ if [ -z "$APIGEE_ORG" ]; then
    exit 1
 fi
 
+if [ -z "$APIGEE_ENV" ]; then
+   >&2 echo "ERROR: Environment variable APIGEE_ENV is not set."
+   >&2 echo "       export APIGEE_ENV=<your-apigee-env-name>"
+   exit 1
+fi
+
 if [ -z "$ZONE" ]; then
    >&2 echo "ERROR: Environment variable ZONE is not set."
    >&2 echo "       export ZONE=<your-zone-name>"
@@ -112,8 +121,6 @@ ORG_JSON=$(curl --silent -H "Authorization: Bearer $(token)"  -X GET -H "Content
 APIGEE_PROVISIONED="F"
 if [ "ACTIVE" = "$(echo "$ORG_JSON" | jq --raw-output .state)" ]; then
   APIGEE_PROVISIONED="T"
-
-
   echo "Apigee Organization exists and is active"
 
 else
@@ -135,11 +142,11 @@ if [ "$CERTIFICATES" = "provided" ];then
   fi
 fi
 
-
 echo ""
 echo "Resolved Configuration: "
 echo "  PROJECT=$PROJECT_ID"
 echo "  APIGEE ORG=$APIGEE_ORG"
+echo "  APIGEE ENV=$APIGEE_ENV"
 echo "  ZONE=$ZONE"
 echo "  CERTIFICATES=$CERTIFICATES"
 echo "  API_ENDPOINT=$API_ENDPOINT"
@@ -148,27 +155,115 @@ echo ""
 
 
 echo "Step 1: Enable APIs"
-#TODO: update this permissions list
 gcloud services enable apigee.googleapis.com cloudbuild.googleapis.com compute.googleapis.com cloudresourcemanager.googleapis.com servicenetworking.googleapis.com cloudkms.googleapis.com --project="$PROJECT_ID" --quiet
 
 echo "Step 2: Upload Apigee Proxy, create API Product and get App Key"
-#TODO 
-#IVAN this just needs to read the APIKEY env variable, not set it
-export APP_KEY=4K79ZECuIAJigebR1bBBTkNNRTcXLjzRq8G4cDVB46RhXXJN 
 
+echo "Step 2.1: Uploading Proxy Bundle"
+
+#Check if proxy bundle already exists and import if not
+echo "Step 2.1.1: Check if proxy already exists"
+PROXY_JSON=$(curl --silent -H "Authorization: Bearer $(token)"  -X GET -H "Content-Type:application/json" "https://apigee.googleapis.com/v1/organizations/$ORG/apis/waap-demo-proxy")
+
+if [ "Proxy" = "$(echo "$PROXY_JSON" | jq --raw-output .metaData.subType)" ]; then
+
+  echo "Proxy bundle is already deployed, skipping import."
+
+else
+  echo "Proxy bundle is not deployed, importing proxy."
+  echo "Step 2.1.2: Importing proxy bundle"
+  IMPORT_JSON=$(curl --silent -H "Authorization: Bearer $(token)" \
+    -X POST "https://apigee.googleapis.com/v1/organizations/$ORG/apis?name=waap-demo-proxy&action=import" \
+    --form file='@waap-demo-proxy-bundle.zip' \
+    -H "Content-Type: multipart/form-data")
+
+  echo $IMPORT_JSON  
+
+  echo "Step 2.1.3 Deploying API Proxy"
+  DEPLOY_JSON=$(curl --silent -H "Authorization: Bearer $(token)" \
+    -X POST "https://apigee.googleapis.com/v1/organizations/$ORG/environments/$APIGEE_ENV/apis/waap-demo-proxy/revisions/1/deployments" )
+
+  echo $DEPLOY_JSON
+fi
+
+
+#Check if API Product already exists and create if not
+echo "Step 2.3.1: Check if API Product already exists"
+PRODUCT_JSON=$(curl --silent -H "Authorization: Bearer $(token)"  \
+  -X GET -H "Content-Type:application/json" \
+  "https://apigee.googleapis.com/v1/organizations/$ORG/apiproducts/waap-demo-product")
+
+if [ "waap-demo-product" = "$(echo "$PRODUCT_JSON" | jq --raw-output .name)" ]; then
+
+  echo "Product is already deployed, skipping creation."
+
+else
+  echo "Product is not deployed, creating product."
+  echo "Step 2.2.2: Creating product"
+  IMPORT_PRODUCT_JSON=$(curl --silent -H "Authorization: Bearer $(token)" \
+    -X POST "https://apigee.googleapis.com/v1/organizations/$ORG/apiproducts" \
+    -H "Content-Type: application/json" \
+    --data '{ "name":"waap-demo-product", "proxies":["waap-demo-proxy"], "displayName":"Waap Demo Product", "environments":["'"$APIGEE_ENV"'"], "description":"Waap Demo Product", "approvalType":"auto"}')
+
+  echo $IMPORT_PRODUCT_JSON  
+fi
+
+#Check if Developer already exists and create if not
+echo "Step 2.3.1: Check if Developer already exists"
+DEVELOPER_JSON=$(curl --silent -H "Authorization: Bearer $(token)"  \
+  -X GET -H "Content-Type:application/json" \
+  "https://apigee.googleapis.com/v1/organizations/$ORG/developers/waapdemo@google.com")
+
+if [ "waapdemo@google.com" = "$(echo "$DEVELOPER_JSON" | jq --raw-output .email)" ]; then
+
+  echo "Developer is already created, skipping creation."
+
+else
+  echo "Developer is not created, creating developer."
+  echo "Step 2.3.2: Creating Developer app"
+  IMPORT_DEV_JSON=$(curl --silent -H "Authorization: Bearer $(token)" \
+    -X POST "https://apigee.googleapis.com/v1/organizations/$ORG/developers" \
+    -H "Content-Type: application/json" \
+    --data '{ "email":"waapdemo@google.com", "firstName":"WaaP", "lastName":"Demo", "userName":"WaapDemo"}')
+
+  echo $IMPORT_DEV_JSON  
+fi
+
+#Check if Developer app already exists and create if not
+echo "Step 2.4.1: Check if Developer App already exists"
+APP_JSON=$(curl --silent -H "Authorization: Bearer $(token)"  \
+  -X GET -H "Content-Type:application/json" \
+  "https://apigee.googleapis.com/v1/organizations/$ORG/apps?expand=true")
+
+echo $APP_JSON
+
+if [ "waap-demo-app" = "$(echo "$APP_JSON" | jq --raw-output '.app[] | select (.name=="waap-demo-app") | .name')"  ]; then
+
+  echo "Developer App is already deployed, skipping creation."
+  export APIKEY=$(echo "$APP_JSON" | jq --raw-output '.app[] | select (.name=="waap-demo-app") | .credentials[].consumerKey')
+
+else
+  echo "Developer App is not deployed, creating App."
+  echo "Step 2.4.2: Creating Developer app"
+  IMPORT_APP_JSON=$(curl --silent -H "Authorization: Bearer $(token)" \
+    -X POST "https://apigee.googleapis.com/v1/organizations/$ORG/developers/waapdemo@google.com/apps/" \
+    -H "Content-Type: application/json" \
+    --data '{ "name":"waap-demo-app", "apiProducts":["waap-demo-product"]}')
+
+  echo $IMPORT_APP_JSON  
+
+  export APIKEY=$(echo "$IMPORT_APP_JSON" | jq --raw-output '.credentials[].consumerKey')
+
+fi
+
+echo APIKEY is $APIKEY
 
 echo "Step 3: Create gcr image"
-echo "Step 3.1: Clone juice shop repo"
-#git clone https://github.com/varshadatta/waap-demo
-#TODO - either sed replace the envs variable or use a version where we parameterise the inputs
-cd waap-demo
-docker build --build-arg API_ENDPOINT=$API_ENDPOINT --build-arg APIKEY=$APIKEY . -t varshadatta/waap-demo
-export IMAGETAG=gcr.io/$PROJECT_ID/owasp-juice-shop
-echo "Step 3.3: Submit image build"
+echo "Step 3.1: Build and submit Juice chop image"
 
-gcloud builds submit --project=$PROJECT_ID \
-    --tag $IMAGETAG \
-    --timeout="1h"
+export IMAGETAG=gcr.io/$PROJECT_ID/owasp-juice-shop
+gcloud builds submit --project=$PROJECT_ID --config=cloudbuild.yaml \
+  --substitutions=_API_ENDPOINT=$API_ENDPOINT,_BASEPATH=$BASEPATH,_APIKEY=$APIKEY,_IMAGETAG=$IMAGETAG .
 
 echo "Step 4: Create Juice shop MIG"
 #create image template
@@ -350,8 +445,24 @@ gcloud compute firewall-rules create "default-allow-http-3000" \
 
 
 echo "Step 7: Set up Cloud Armor"
-#TODO
+gcloud compute --project="$PROJECT_ID" security-policies create waap-demo-juice-shop
+
+gcloud compute --project="$PROJECT_ID" security-policies rules create 3000 --action=deny-403 --security-policy=waap-demo-juice-shop --description="block xss" --expression=evaluatePreconfiguredExpr\(\'xss-stable\',\ \[\'owasp-crs-v030001-id941110-xss\',\ \'owasp-crs-v030001-id941120-xss\',\ \'owasp-crs-v030001-id941130-xss\',\ \'owasp-crs-v030001-id941140-xss\',\ \'owasp-crs-v030001-id941160-xss\',\ \'owasp-crs-v030001-id941170-xss\',\ \'owasp-crs-v030001-id941180-xss\',\ \'owasp-crs-v030001-id941190-xss\',\ \'owasp-crs-v030001-id941200-xss\',\ \'owasp-crs-v030001-id941210-xss\',\ \'owasp-crs-v030001-id941220-xss\',\ \'owasp-crs-v030001-id941230-xss\',\ \'owasp-crs-v030001-id941240-xss\',\ \'owasp-crs-v030001-id941250-xss\',\ \'owasp-crs-v030001-id941260-xss\',\ \'owasp-crs-v030001-id941270-xss\',\ \'owasp-crs-v030001-id941280-xss\',\ \'owasp-crs-v030001-id941290-xss\',\ \'owasp-crs-v030001-id941300-xss\',\ \'owasp-crs-v030001-id941310-xss\',\ \'owasp-crs-v030001-id941350-xss\',\ \'owasp-crs-v030001-id941150-xss\',\ \'owasp-crs-v030001-id941320-xss\',\ \'owasp-crs-v030001-id941330-xss\',\ \'owasp-crs-v030001-id941340-xss\'\]\)
+
+gcloud compute --project="$PROJECT_ID" security-policies rules create 7000 --action=deny-403 --security-policy=waap-demo-juice-shop --description=Block\ US\ IP\ \&\ header:\ Hacker --expression=origin.region_code\ ==\ \'US\'\ \&\&\ request.headers\[\'user-agent\'\].contains\(\'Hacker\'\)
+
+gcloud compute --project="$PROJECT_ID" security-policies rules create 7001 --action=deny-403 --security-policy=waap-demo-juice-shop --description="Regular Expression Rule" --expression=request.headers\[\'user-agent\'\].contains\(\'Hacker\'\)
+
+gcloud compute --project="$PROJECT_ID" security-policies rules create 9000 --action=deny-403 --security-policy=waap-demo-juice-shop --description="block sql injection" --expression=evaluatePreconfiguredExpr\(\'sqli-stable\',\ \[\'owasp-crs-v030001-id942251-sqli\',\ \'owasp-crs-v030001-id942420-sqli\',\ \'owasp-crs-v030001-id942431-sqli\',\ \'owasp-crs-v030001-id942460-sqli\',\ \'owasp-crs-v030001-id942421-sqli\',\ \'owasp-crs-v030001-id942432-sqli\'\]\)
+
+#gcloud compute --project="$PROJECT_ID" security-policies rules create 9997 --action=deny-403 --security-policy=waap-demo-juice-shop --description="Deny all requests below 0.8 reCAPTCHA score" --expression=recaptchaTokenScore\(\)\ \<=\ 0.9
+
+gcloud compute --project="$PROJECT_ID" security-policies rules create 2147483646 --action=allow --security-policy=waap-demo-juice-shop --description="Default rule, higher priority overrides it" --src-ip-ranges=\*
+
+#gcloud compute --project="$PROJECT_ID" backend-services update https-lb-proxy --security-policy=waap-demo-juice-shop
+
+gcloud compute --project="$PROJECT_ID" backend-services update juiceshop-be --security-policy=waap-demo-juice-shop
 
 
-echo "Test Instructions"
-#TODO
+
+echo "BUILD COMPLETE"
