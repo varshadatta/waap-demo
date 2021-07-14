@@ -459,9 +459,7 @@ gcloud compute --project="$PROJECT_ID" security-policies rules create 9000 --act
 
 gcloud compute --project="$PROJECT_ID" security-policies rules create 2147483646 --action=allow --security-policy=waap-demo-juice-shop --description="Default rule, higher priority overrides it" --src-ip-ranges=\*
 
-#gcloud compute --project="$PROJECT_ID" backend-services update https-lb-proxy --security-policy=waap-demo-juice-shop
-
-gcloud compute --project="$PROJECT_ID" backend-services update juiceshop-be --security-policy=waap-demo-juice-shop
+gcloud compute --project="$PROJECT_ID" backend-services update juiceshop-be,https-lb-proxy --security-policy=waap-demo-juice-shop
 
 
 
