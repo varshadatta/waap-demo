@@ -163,7 +163,7 @@ echo "Step 2.1: Uploading Proxy Bundle"
 
 #Check if proxy bundle already exists and import if not
 echo "Step 2.1.1: Check if proxy already exists"
-PROXY_JSON=$(curl --silent -H "Authorization: Bearer $(token)"  -X GET -H "Content-Type:application/json" "https://apigee.googleapis.com/v1/organizations/$ORG/apis/waap-demo-proxy")
+PROXY_JSON=$(curl --silent -H "Authorization: Bearer $(token)"  -X GET -H "Content-Type:application/json" "https://apigee.googleapis.com/v1/organizations/$APIGEE_ORG/apis/waap-demo-proxy")
 
 if [ "Proxy" = "$(echo "$PROXY_JSON" | jq --raw-output .metaData.subType)" ]; then
 
@@ -173,7 +173,7 @@ else
   echo "Proxy bundle is not deployed, importing proxy."
   echo "Step 2.1.2: Importing proxy bundle"
   IMPORT_JSON=$(curl --silent -H "Authorization: Bearer $(token)" \
-    -X POST "https://apigee.googleapis.com/v1/organizations/$ORG/apis?name=waap-demo-proxy&action=import" \
+    -X POST "https://apigee.googleapis.com/v1/organizations/$APIGEE_ORG/apis?name=waap-demo-proxy&action=import" \
     --form file='@waap-demo-proxy-bundle.zip' \
     -H "Content-Type: multipart/form-data")
 
@@ -181,7 +181,7 @@ else
 
   echo "Step 2.1.3 Deploying API Proxy"
   DEPLOY_JSON=$(curl --silent -H "Authorization: Bearer $(token)" \
-    -X POST "https://apigee.googleapis.com/v1/organizations/$ORG/environments/$APIGEE_ENV/apis/waap-demo-proxy/revisions/1/deployments" )
+    -X POST "https://apigee.googleapis.com/v1/organizations/$APIGEE_ORG/environments/$APIGEE_ENV/apis/waap-demo-proxy/revisions/1/deployments" )
 
   echo $DEPLOY_JSON
 fi
@@ -191,7 +191,7 @@ fi
 echo "Step 2.3.1: Check if API Product already exists"
 PRODUCT_JSON=$(curl --silent -H "Authorization: Bearer $(token)"  \
   -X GET -H "Content-Type:application/json" \
-  "https://apigee.googleapis.com/v1/organizations/$ORG/apiproducts/waap-demo-product")
+  "https://apigee.googleapis.com/v1/organizations/$APIGEE_ORG/apiproducts/waap-demo-product")
 
 if [ "waap-demo-product" = "$(echo "$PRODUCT_JSON" | jq --raw-output .name)" ]; then
 
@@ -201,7 +201,7 @@ else
   echo "Product is not deployed, creating product."
   echo "Step 2.2.2: Creating product"
   IMPORT_PRODUCT_JSON=$(curl --silent -H "Authorization: Bearer $(token)" \
-    -X POST "https://apigee.googleapis.com/v1/organizations/$ORG/apiproducts" \
+    -X POST "https://apigee.googleapis.com/v1/organizations/$APIGEE_ORG/apiproducts" \
     -H "Content-Type: application/json" \
     --data '{ "name":"waap-demo-product", "proxies":["waap-demo-proxy"], "displayName":"Waap Demo Product", "environments":["'"$APIGEE_ENV"'"], "description":"Waap Demo Product", "approvalType":"auto"}')
 
@@ -212,7 +212,7 @@ fi
 echo "Step 2.3.1: Check if Developer already exists"
 DEVELOPER_JSON=$(curl --silent -H "Authorization: Bearer $(token)"  \
   -X GET -H "Content-Type:application/json" \
-  "https://apigee.googleapis.com/v1/organizations/$ORG/developers/waapdemo@google.com")
+  "https://apigee.googleapis.com/v1/organizations/$APIGEE_ORG/developers/waapdemo@google.com")
 
 if [ "waapdemo@google.com" = "$(echo "$DEVELOPER_JSON" | jq --raw-output .email)" ]; then
 
@@ -222,7 +222,7 @@ else
   echo "Developer is not created, creating developer."
   echo "Step 2.3.2: Creating Developer app"
   IMPORT_DEV_JSON=$(curl --silent -H "Authorization: Bearer $(token)" \
-    -X POST "https://apigee.googleapis.com/v1/organizations/$ORG/developers" \
+    -X POST "https://apigee.googleapis.com/v1/organizations/$APIGEE_ORG/developers" \
     -H "Content-Type: application/json" \
     --data '{ "email":"waapdemo@google.com", "firstName":"WaaP", "lastName":"Demo", "userName":"WaapDemo"}')
 
@@ -233,7 +233,7 @@ fi
 echo "Step 2.4.1: Check if Developer App already exists"
 APP_JSON=$(curl --silent -H "Authorization: Bearer $(token)"  \
   -X GET -H "Content-Type:application/json" \
-  "https://apigee.googleapis.com/v1/organizations/$ORG/apps?expand=true")
+  "https://apigee.googleapis.com/v1/organizations/$APIGEE_ORG/apps?expand=true")
 
 echo $APP_JSON
 
@@ -246,7 +246,7 @@ else
   echo "Developer App is not deployed, creating App."
   echo "Step 2.4.2: Creating Developer app"
   IMPORT_APP_JSON=$(curl --silent -H "Authorization: Bearer $(token)" \
-    -X POST "https://apigee.googleapis.com/v1/organizations/$ORG/developers/waapdemo@google.com/apps/" \
+    -X POST "https://apigee.googleapis.com/v1/organizations/$APIGEE_ORG/developers/waapdemo@google.com/apps/" \
     -H "Content-Type: application/json" \
     --data '{ "name":"waap-demo-app", "apiProducts":["waap-demo-product"]}')
 
