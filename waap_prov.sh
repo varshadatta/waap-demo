@@ -24,10 +24,6 @@ case "$1" in
   -p|--project)
     PROJECT_ID="$2"
     shift 2;;
-
-  -c|--certificates)
-    CERTIFICATES="$2"
-    shift 2;;
     
   -o|--org)
     APIGEE_ORG="$2"
@@ -61,14 +57,14 @@ eval set -- "$pps"
 
 #Check dependencies
 
-#for dependency in jq openssl
-#do
-#  if ! [ -x "$(command -v $dependency)" ]; then
-#    >&2 echo "ABORTED: Required command is not on your PATH: $dependency."
-#    >&2 echo "         Please install it before you continue."
-#    exit 2
-#  fi
-#done
+for dependency in jq openssl
+do
+  if ! [ -x "$(command -v $dependency)" ]; then
+    >&2 echo "ABORTED: Required command is not on your PATH: $dependency."
+    >&2 echo "         Please install it before you continue."
+    exit 2
+  fi
+done
 
 
 #Check Parameters
@@ -130,17 +126,6 @@ else
   
 fi
 
-export CERTIFICATES=${CERTIFICATES:-managed}
-CERT_DISPLAY=$CERTIFICATES
-
-if [ "$CERTIFICATES" = "provided" ];then
-  if [ -f "$RUNTIME_TLS_KEY" ] && [ -f "$RUNTIME_TLS_CERT" ]; then
-    CERT_DISPLAY="$CERT_DISPLAY key: $RUNTIME_TLS_KEY, cert $RUNTIME_TLS_CERT"
-  else
-    echo "you selected CERTIFICATES=$CERTIFICATES but RUNTIME_TLS_KEY and/or RUNTIME_TLS_CERT is missing"
-    exit 1
-  fi
-fi
 
 echo ""
 echo "Resolved Configuration: "
@@ -148,7 +133,6 @@ echo "  PROJECT=$PROJECT_ID"
 echo "  APIGEE ORG=$APIGEE_ORG"
 echo "  APIGEE ENV=$APIGEE_ENV"
 echo "  ZONE=$ZONE"
-echo "  CERTIFICATES=$CERTIFICATES"
 echo "  API_ENDPOINT=$API_ENDPOINT"
 echo "  BASEPATH=$BASEPATH"
 echo ""
@@ -157,13 +141,44 @@ echo ""
 echo "Step 1: Enable APIs"
 gcloud services enable apigee.googleapis.com cloudbuild.googleapis.com compute.googleapis.com cloudresourcemanager.googleapis.com servicenetworking.googleapis.com cloudkms.googleapis.com --project="$PROJECT_ID" --quiet
 
+echo "Step 1.1: Create IP Address"
+gcloud compute addresses create juiceshop-lb-ip --project=$PROJECT_ID --global
+IP_JSON=$(curl --silent -H "Authorization: Bearer $(token)"  -X GET "https://www.googleapis.com/compute/v1/projects/$PROJECT_ID/global/addresses/juiceshop-lb-ip")
+export IPADDRESS=$(echo "$IP_JSON" | jq --raw-output .address)
+echo IP Address is $IPADDRESS
+
+echo "Step 1.2: Generate Certificate"
+gcloud compute ssl-certificates create juiceshop-lb-cert --project=$PROJECT_ID --global --domains=$IPADDRESS.nip.io
+
 echo "Step 2: Upload Apigee Proxy, create API Product and get App Key"
 
-echo "Step 2.1: Uploading Proxy Bundle"
+echo "Step 2.1: Creating Target Server Config"
 
 #Check if proxy bundle already exists and import if not
-echo "Step 2.1.1: Check if proxy already exists"
-PROXY_JSON=$(curl --silent -H "Authorization: Bearer $(token)"  -X GET -H "Content-Type:application/json" "https://apigee.googleapis.com/v1/organizations/$APIGEE_ORG/apis/waap-demo-proxy")
+echo "Step 2.1.1: Check if target server already exists"
+TS_JSON=$(curl --silent -H "Authorization: Bearer $(token)"  -X GET -H "Content-Type:application/json" "https://apigee.googleapis.com/v1/organizations/$APIGEE_ORG/environments/$APIGEE_ENV/targetservers/waap-demo-ts")
+
+if [ "waap-demo-ts" = "$(echo "$TS_JSON" | jq --raw-output .name)" ]; then
+
+  echo "Target Server is already deployed, skipping creation."
+
+else
+  echo "Target Server is not deployed, creating target server."
+  echo "Step 2.1.2: Creating target server"
+  IMPORT_JSON=$(curl --silent -H "Authorization: Bearer $(token)" \
+    -X POST "https://apigee.googleapis.com/v1/organizations/$APIGEE_ORG/environments/$APIGEE_ENV/targetservers" \
+    -H "Content-Type: application/json" \
+    --data '{ "name":"waap-demo-ts", "host":"'"$IPADDRESS"'.nip.io", "port":"443", "sSLInfo":{"enabled": "true"}}')
+
+
+  echo $IMPORT_JSON  
+fi
+
+echo "Step 2.2: Uploading Proxy Bundle"
+
+#Check if proxy bundle already exists and import if not
+echo "Step 2.2.1: Check if proxy already exists"
+PROXY_JSON=$(curl --silent -H "Authorization: Bearer $(token)"  -X GET -H "Content-Type:application/json" "https://apigee.googleapis.com/v1/organizations/$APIGEE_ORG/apis/waap-proxy")
 
 if [ "Proxy" = "$(echo "$PROXY_JSON" | jq --raw-output .metaData.subType)" ]; then
 
@@ -171,17 +186,17 @@ if [ "Proxy" = "$(echo "$PROXY_JSON" | jq --raw-output .metaData.subType)" ]; th
 
 else
   echo "Proxy bundle is not deployed, importing proxy."
-  echo "Step 2.1.2: Importing proxy bundle"
+  echo "Step 2.2.2: Importing proxy bundle"
   IMPORT_JSON=$(curl --silent -H "Authorization: Bearer $(token)" \
-    -X POST "https://apigee.googleapis.com/v1/organizations/$APIGEE_ORG/apis?name=waap-demo-proxy&action=import" \
+    -X POST "https://apigee.googleapis.com/v1/organizations/$APIGEE_ORG/apis?name=waap-proxy&action=import" \
     --form file='@waap-demo-proxy-bundle.zip' \
     -H "Content-Type: multipart/form-data")
 
   echo $IMPORT_JSON  
 
-  echo "Step 2.1.3 Deploying API Proxy"
+  echo "Step 2.2.3 Deploying API Proxy"
   DEPLOY_JSON=$(curl --silent -H "Authorization: Bearer $(token)" \
-    -X POST "https://apigee.googleapis.com/v1/organizations/$APIGEE_ORG/environments/$APIGEE_ENV/apis/waap-demo-proxy/revisions/1/deployments" )
+    -X POST "https://apigee.googleapis.com/v1/organizations/$APIGEE_ORG/environments/$APIGEE_ENV/apis/waap-proxy/revisions/1/deployments" )
 
   echo $DEPLOY_JSON
 fi
@@ -203,7 +218,7 @@ else
   IMPORT_PRODUCT_JSON=$(curl --silent -H "Authorization: Bearer $(token)" \
     -X POST "https://apigee.googleapis.com/v1/organizations/$APIGEE_ORG/apiproducts" \
     -H "Content-Type: application/json" \
-    --data '{ "name":"waap-demo-product", "proxies":["waap-demo-proxy"], "displayName":"Waap Demo Product", "environments":["'"$APIGEE_ENV"'"], "description":"Waap Demo Product", "approvalType":"auto"}')
+    --data '{ "name":"waap-demo-product", "proxies":["waap-proxy"], "displayName":"Waap Demo Product", "environments":["'"$APIGEE_ENV"'"], "description":"Waap Demo Product", "approvalType":"auto"}')
 
   echo $IMPORT_PRODUCT_JSON  
 fi
@@ -268,13 +283,13 @@ gcloud builds submit --project=$PROJECT_ID --config=cloudbuild.yaml \
 echo "Step 4: Create Juice shop MIG"
 #create image template
 echo "Step 4.1: Create Image Template"
-gcloud beta compute --project=$PROJECT_ID instance-templates create-with-container juiceshop-demo-template \
+gcloud compute --project=$PROJECT_ID instance-templates create-with-container juiceshop-demo-mig-template \
     --machine-type=n2-standard-2 \
     --network=projects/$PROJECT_ID/global/networks/default \
-    --network-tier=PREMIUM --metadata=google-logging-enabled=true,google-monitoring-enabled=true \
     --maintenance-policy=MIGRATE \
-    --scopes=https://www.googleapis.com/auth/devstorage.read_only,https://www.googleapis.com/auth/logging.write,https://www.googleapis.com/auth/monitoring.write,https://www.googleapis.com/auth/servicecontrol,https://www.googleapis.com/auth/service.management.readonly,https://www.googleapis.com/auth/trace.append \
+    --scopes=https://www.googleapis.com/auth/cloud-platform \
     --tags=juiceshop,http-server,https-server \
+    --image=cos-stable-89-16108-470-1 \
     --image-project=cos-cloud \
     --boot-disk-size=10GB \
     --boot-disk-type=pd-balanced \
@@ -283,11 +298,13 @@ gcloud beta compute --project=$PROJECT_ID instance-templates create-with-contain
     --shielded-vtpm \
     --shielded-integrity-monitoring \
     --container-image=$IMAGETAG \
-    --container-restart-policy=always 
+    --container-restart-policy=always \
+    --labels=container-vm=cos-stable-89-16108-470-1 \
+    --network-tier=PREMIUM    
 
 
 #Create managed instance group & health check
-echo "Step 4.2: Create managed instance group"
+echo "Step 4.2: Create managed instance group healthcheck"
 gcloud compute --project $PROJECT_ID health-checks create http juiceshop-healthcheck \
     --timeout "5" \
     --check-interval "10" \
@@ -296,10 +313,10 @@ gcloud compute --project $PROJECT_ID health-checks create http juiceshop-healthc
     --port "3000" \
     --request-path "/rest/admin/application-version"
 
-echo "Step 4.3: Create healthcheck"
+echo "Step 4.3: Create managed instance group"
 gcloud beta compute --project=$PROJECT_ID instance-groups managed create juiceshop-demo-mig \
     --base-instance-name=juiceshop-demo-mig \
-    --template=juiceshop-demo-template \
+    --template=juiceshop-demo-mig-template \
     --size=1 \
     --zone=$ZONE \
     --health-check=juiceshop-healthcheck \
@@ -314,6 +331,11 @@ gcloud beta compute --project $PROJECT_ID instance-groups managed set-autoscalin
     --target-cpu-utilization "0.6" \
     --mode "on"    
 
+echo "Step 4.5: Create named port"
+gcloud compute --project $PROJECT_ID instance-groups managed set-named-ports juiceshop-demo-mig \
+    --named-ports "http-juiceshop:3000" \
+    --zone=$ZONE  
+
 
 echo "Step 5: Set up networking and certificates"
 
@@ -323,12 +345,14 @@ gcloud compute backend-services create juiceshop-be \
     --project "$PROJECT_ID" \
     --protocol=HTTP \
     --port-name=http-juiceshop \
+    --global \
     --health-checks=juiceshop-healthcheck
 
 echo "Step 5.2: Add backend to instance group"
 gcloud compute backend-services add-backend juiceshop-be \
     --project "$PROJECT_ID" \
     --instance-group=juiceshop-demo-mig \
+    --global \
     --instance-group-zone=$ZONE 
 
 #Create URL map 
@@ -338,61 +362,20 @@ gcloud compute url-maps create web-map-https \
     --default-service juiceshop-be
 
 
-echo "Step 5.4.1: Reserve an IP address for the Load Balancer"
-gcloud compute addresses create lb-ipv4-vip-1 \
-    --project "$PROJECT_ID" \
-    --ip-version=IPV4 \
-    --global \
-    --project "$PROJECT_ID" \
-    --quiet
-
-echo "Step 5.4.2: Get a reserved IP address"
-RUNTIME_IP=$(gcloud compute addresses describe lb-ipv4-vip-1 --format="get(address)" --global --project "$PROJECT_ID" --quiet)
-export RUNTIME_IP
-echo RUNTIME_IP is $RUNTIME_IP
-RUNTIME_HOST_ALIAS=$(echo "$RUNTIME_IP" | tr '.' '-').nip.io
-export RUNTIME_HOST_ALIAS
-echo RUNTIME_HOST_ALIAS is $RUNTIME_HOST_ALIAS
-
-
-#grab / generate certificates
-if [ "$CERTIFICATES" = "managed" ]; then
-  echo "Step 5.4.3: Using Google managed certificate:"
-  
-  gcloud compute ssl-certificates create juiceshop-ssl-cert \
-    --domains="$RUNTIME_HOST_ALIAS" --project "$PROJECT_ID" --quiet
-    
-elif [ "$CERTIFICATES" = "generated" ]; then
-  echo "Step 5.4.4: Generate eval certificate and key"
-  export RUNTIME_TLS_CERT=~/mig-cert.pem
-  export RUNTIME_TLS_KEY=~/mig-key.pem
-  openssl req -x509 -out "$RUNTIME_TLS_CERT" -keyout "$RUNTIME_TLS_KEY" -newkey rsa:2048 -nodes -sha256 -subj '/CN='"$RUNTIME_HOST_ALIAS"'' -extensions EXT -config <( printf "[dn]\nCN=$RUNTIME_HOST_ALIAS\n[req]\ndistinguished_name=dn\n[EXT]\nbasicConstraints=critical,CA:TRUE,pathlen:1\nsubjectAltName=DNS:$RUNTIME_HOST_ALIAS\nkeyUsage=digitalSignature,keyCertSign\nextendedKeyUsage=serverAuth")
-
-  echo "Step 5.4.5: Upload your TLS server certificate and key to GCP"
-  gcloud compute ssl-certificates create juiceshop-ssl-cert \
-    --certificate="$RUNTIME_TLS_CERT" \
-    --private-key="$RUNTIME_TLS_KEY" --project "$PROJECT_ID" --quiet
-else
-  echo "Step 5.4.6: Upload your TLS server certificate and key to GCP"
-  gcloud compute ssl-certificates create juiceshop-ssl-cert \
-    --certificate="$RUNTIME_TLS_CERT" \
-    --private-key="$RUNTIME_TLS_KEY" --project "$PROJECT_ID" --quiet
-fi
-
 
 #Create a proxy rule 
 echo "Step 5.5: Create a Proxy rule"
 gcloud compute target-https-proxies create https-lb-proxy \
     --project "$PROJECT_ID" \
     --url-map web-map-https \
-    --ssl-certificates juiceshop-ssl-cert
+    --ssl-certificates juiceshop-lb-cert
 
 
 #Create a forwarding rule 
 echo "Step 5.6: Create a forwarding rule"
 gcloud compute forwarding-rules create https-content-rule \
     --project "$PROJECT_ID" \
-    --address=lb-ipv4-vip-1 \
+    --address=$IPADDRESS \
     --global \
     --target-https-proxy=https-lb-proxy \
     --ports=443
@@ -455,11 +438,11 @@ gcloud compute --project="$PROJECT_ID" security-policies rules create 7001 --act
 
 gcloud compute --project="$PROJECT_ID" security-policies rules create 9000 --action=deny-403 --security-policy=waap-demo-juice-shop --description="block sql injection" --expression=evaluatePreconfiguredExpr\(\'sqli-stable\',\ \[\'owasp-crs-v030001-id942251-sqli\',\ \'owasp-crs-v030001-id942420-sqli\',\ \'owasp-crs-v030001-id942431-sqli\',\ \'owasp-crs-v030001-id942460-sqli\',\ \'owasp-crs-v030001-id942421-sqli\',\ \'owasp-crs-v030001-id942432-sqli\'\]\)
 
-#gcloud compute --project="$PROJECT_ID" security-policies rules create 9997 --action=deny-403 --security-policy=waap-demo-juice-shop --description="Deny all requests below 0.8 reCAPTCHA score" --expression=recaptchaTokenScore\(\)\ \<=\ 0.9
+gcloud compute --project="$PROJECT_ID" security-policies rules create 9997 --action=deny-403 --security-policy=waap-demo-juice-shop --description="Deny all requests below 0.8 reCAPTCHA score" --expression=recaptchaTokenScore\(\)\ \<=\ 0.9
 
 gcloud compute --project="$PROJECT_ID" security-policies rules create 2147483646 --action=allow --security-policy=waap-demo-juice-shop --description="Default rule, higher priority overrides it" --src-ip-ranges=\*
 
-gcloud compute --project="$PROJECT_ID" backend-services update juiceshop-be,https-lb-proxy --security-policy=waap-demo-juice-shop
+gcloud compute --project="$PROJECT_ID" backend-services update juiceshop-be --security-policy=waap-demo-juice-shop --global
 
 
 
