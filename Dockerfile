@@ -11,7 +11,7 @@ RUN echo "APIKEY is $APIKEY"
 COPY . /waap-demo
 WORKDIR /waap-demo
 RUN npm i -g typescript ts-node
-RUN npm install --production --unsafe-perm
+RUN npm install --production --unsafe-perm --force
 RUN npm dedupe
 RUN rm -rf frontend/node_modules
 
