@@ -8,17 +8,18 @@
 // The list of file replacements can be found in `angular.json`.
 
 export const environment = {
-  production: false,
-  //hostServer: 'http://localhost:3000',
-  hostServer: 'https://api.gcpsecurity.solutions/owasp',
-  apikey: '11euecfLCrTwQBhCevHDiKSE50UXTZBXwGYtEvA6fu0AQwyq',
-  socketServer: '.'
-}
-
-/*
- * In development mode, to ignore zone related error stack frames such as
- * `zone.run`, `zoneDelegate.invokeTask` for easier debugging, you can
- * import the following file, but please comment it out in production mode
- * because it will have performance impact when throw error
- */
-// import 'zone.js/dist/zone-error';  // Included with Angular CLI.
+    production: false,
+    //hostServer: 'http://localhost:3000',
+    hostServer: 'example.com',
+    apikey: 'abcd123',
+    socketServer: '.'
+  }
+  
+  /*
+   * In development mode, to ignore zone related error stack frames such as
+   * `zone.run`, `zoneDelegate.invokeTask` for easier debugging, you can
+   * import the following file, but please comment it out in production mode
+   * because it will have performance impact when throw error
+   */
+  // import 'zone.js/dist/zone-error';  // Included with Angular CLI.
+  
